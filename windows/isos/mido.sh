@@ -399,7 +399,7 @@ consumer_download() {
 
     # tr: Filter for only numerics to prevent HTTP parameter injection
     # head -c was recently added to POSIX: https://austingroupbugs.net/view.php?id=407
-    product_edition_id="$(echo "$iso_download_page_html" | grep -Eo '<option value="[0-9]+">Windows' | cut -d '"' -f 2 | head -n 1 | tr -cd '0-9' | head -c 16)"
+    product_edition_id="$(echo "$iso_download_page_html" | grep -aEo '<option value="[0-9]+">Windows' | cut -d '"' -f 2 | head -n 1 | tr -cd '0-9' | head -c 16)"
     [ "$VERBOSE" ] && echo "Product edition ID: $product_edition_id" >&2
 
     # Permit Session ID
@@ -423,8 +423,8 @@ consumer_download() {
     }
 
     # tr: Filter for only hexadecimal digits (token) or numerics (timestamp) to prevent HTTP parameter injection
-    ov_df_token="$(printf '%s\n' "$ov_df_js" | grep -o '[?&]w=[A-Fa-f0-9]*' | head -n 1 | cut -d '=' -f 2 | tr -cd '[:xdigit:]' | head -c 64)"
-    ov_df_ticks="$(printf '%s\n' "$ov_df_js" | grep -o 'rticks="+\{0,1\}[0-9]*' | head -n 1 | tr -cd '0-9' | head -c 32)"
+    ov_df_token="$(printf '%s\n' "$ov_df_js" | grep -ao '[?&]w=[A-Fa-f0-9]*' | head -n 1 | cut -d '=' -f 2 | tr -cd '[:xdigit:]' | head -c 64)"
+    ov_df_ticks="$(printf '%s\n' "$ov_df_js" | grep -ao 'rticks="+\{0,1\}[0-9]*' | head -n 1 | tr -cd '0-9' | head -c 32)"
     [ "$VERBOSE" ] && echo "ov-df token: $ov_df_token, ticks: $ov_df_ticks" >&2
 
     if ! [ "$ov_df_token" ] || ! [ "$ov_df_ticks" ]; then
@@ -468,9 +468,9 @@ consumer_download() {
         # Minimal JSON parsing without a jq dependency: put every "Skus" array element on its own line, pick the "English (United States)" one, and extract its "Id"
         # Fall back to the language-neutral "Language" field in case Microsoft renames the localized one
         # tr: Filter for only alphanumerics or "-" to prevent HTTP parameter injection
-        sku_id="$(printf '%s\n' "$language_skuid_table_json" | tr '{' '\n' | grep -F '"LocalizedLanguage":"English (United States)"' | head -n 1 | sed -n 's/.*"Id":"\{0,1\}\([[:alnum:]-]*\).*/\1/p' | tr -cd '[:alnum:]-' | head -c 16)"
+        sku_id="$(printf '%s\n' "$language_skuid_table_json" | tr '{' '\n' | grep -aF '"LocalizedLanguage":"English (United States)"' | head -n 1 | sed -n 's/.*"Id":"\{0,1\}\([[:alnum:]-]*\).*/\1/p' | tr -cd '[:alnum:]-' | head -c 16)"
         if ! [ "$sku_id" ]; then
-            sku_id="$(printf '%s\n' "$language_skuid_table_json" | tr '{' '\n' | grep -F '"Language":"English"' | head -n 1 | sed -n 's/.*"Id":"\{0,1\}\([[:alnum:]-]*\).*/\1/p' | tr -cd '[:alnum:]-' | head -c 16)"
+            sku_id="$(printf '%s\n' "$language_skuid_table_json" | tr '{' '\n' | grep -aF '"Language":"English"' | head -n 1 | sed -n 's/.*"Id":"\{0,1\}\([[:alnum:]-]*\).*/\1/p' | tr -cd '[:alnum:]-' | head -c 16)"
         fi
 
         [ "$sku_id" ] && break
@@ -502,10 +502,10 @@ consumer_download() {
     fi
 
     # Microsoft answers HTTP 200 with a JSON error body when it refuses to issue a link (a successful answer has an empty "Errors" array)
-    if printf '%s\n' "$iso_download_link_json" | grep -Fq '"Errors":[{'; then
+    if printf '%s\n' "$iso_download_link_json" | grep -aFq '"Errors":[{'; then
         # tr: Filter for only alphanumerics, punctuation, or spaces so the server can't print terminal escape sequences
         error_message="$(printf '%s\n' "$iso_download_link_json" | sed -n 's/.*"Value":"\([^"]*\)".*/\1/p' | head -n 1 | tr -cd '[:alnum:][:punct:] ' | head -c 256)"
-        if printf '%s\n' "$iso_download_link_json" | grep -Fq "SentinelReject"; then
+        if printf '%s\n' "$iso_download_link_json" | grep -aFq "SentinelReject"; then
             echo_err "Microsoft blocked the automated download request ($error_message). This is either an IP address ban (too many requests, or a VPN/datacenter/Tor address) or Microsoft's \"Sentinel\" not accepting this session's web browser fingerprint. Please manually download this ISO in a web browser here: $url"
         else
             echo_err "Microsoft servers refused our request for an automated download ($error_message). Please manually download this ISO in a web browser here: $url"
@@ -516,9 +516,9 @@ consumer_download() {
 
     # Filter for 64-bit ISO download URL
     # Minimal JSON parsing without a jq dependency: put every "ProductDownloadOptions" array element on its own line, pick the x64 one ("DownloadType" 1 = x64 according to Fido, fall back to "x64" in the file name), and extract its "Uri"
-    iso_download_link="$(printf '%s\n' "$iso_download_link_json" | tr '{' '\n' | grep -E '"DownloadType": *"?1[,}"]' | head -n 1 | sed -n 's/.*"Uri":"\([^"]*\)".*/\1/p')"
+    iso_download_link="$(printf '%s\n' "$iso_download_link_json" | tr '{' '\n' | grep -aE '"DownloadType": *"?1[,}"]' | head -n 1 | sed -n 's/.*"Uri":"\([^"]*\)".*/\1/p')"
     if ! [ "$iso_download_link" ]; then
-        iso_download_link="$(printf '%s\n' "$iso_download_link_json" | tr '{' '\n' | grep -i 'x64' | sed -n 's/.*"Uri":"\([^"]*\)".*/\1/p' | head -n 1)"
+        iso_download_link="$(printf '%s\n' "$iso_download_link_json" | tr '{' '\n' | grep -ai 'x64' | sed -n 's/.*"Uri":"\([^"]*\)".*/\1/p' | head -n 1)"
     fi
     # sed: JSON decode "&" and "/" characters
     # tr: Filter for only alphanumerics or punctuation
