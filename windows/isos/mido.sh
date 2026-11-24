@@ -396,6 +396,9 @@ consumer_download() {
         handle_curl_error $?
         return $?
     }
+    # Strip NUL bytes: Microsoft occasionally serves pages with embedded binary junk
+    # (tracking beacons/A-B payloads) that trips grep binary detection downstream.
+    iso_download_page_html="$(printf '%s' "$iso_download_page_html" | tr -d '\000')"
 
     # tr: Filter for only numerics to prevent HTTP parameter injection
     # head -c was recently added to POSIX: https://austingroupbugs.net/view.php?id=407
@@ -421,6 +424,9 @@ consumer_download() {
         handle_curl_error $?
         return $?
     }
+    # Strip NUL bytes: Microsoft occasionally serves pages with embedded binary junk
+    # (tracking beacons/A-B payloads) that trips grep binary detection downstream.
+    ov_df_js="$(printf '%s' "$ov_df_js" | tr -d '\000')"
 
     # tr: Filter for only hexadecimal digits (token) or numerics (timestamp) to prevent HTTP parameter injection
     ov_df_token="$(printf '%s\n' "$ov_df_js" | grep -ao '[?&]w=[A-Fa-f0-9]*' | head -n 1 | cut -d '=' -f 2 | tr -cd '[:xdigit:]' | head -c 64)"
@@ -464,6 +470,9 @@ consumer_download() {
             handle_curl_error $?
             return $?
         }
+        # Strip NUL bytes: Microsoft occasionally serves pages with embedded binary junk
+        # (tracking beacons/A-B payloads) that trips grep binary detection downstream.
+        language_skuid_table_json="$(printf '%s' "$language_skuid_table_json" | tr -d '\000')"
 
         # Minimal JSON parsing without a jq dependency: put every "Skus" array element on its own line, pick the "English (United States)" one, and extract its "Id"
         # Fall back to the language-neutral "Language" field in case Microsoft renames the localized one
@@ -493,6 +502,9 @@ consumer_download() {
         handle_curl_error $?
         return $?
     }
+    # Strip NUL bytes: Microsoft occasionally serves pages with embedded binary junk
+    # (tracking beacons/A-B payloads) that trips grep binary detection downstream.
+    iso_download_link_json="$(printf '%s' "$iso_download_link_json" | tr -d '\000')"
 
     if ! [ "$iso_download_link_json" ]; then
         # This should only happen if there's been some change to how this API works
@@ -557,6 +569,9 @@ enterprise_eval_download() {
         handle_curl_error $?
         return $?
     }
+    # Strip NUL bytes: Microsoft occasionally serves pages with embedded binary junk
+    # (tracking beacons/A-B payloads) that trips grep binary detection downstream.
+    iso_download_page_html="$(printf '%s' "$iso_download_page_html" | tr -d '\000')"
 
     if ! [ "$iso_download_page_html" ]; then
         # This should only happen if there's been some change to where this download page is located
